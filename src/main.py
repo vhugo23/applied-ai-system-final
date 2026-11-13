@@ -1,34 +1,53 @@
 """
 Command line runner for the Music Recommender Simulation.
 
-This file helps you quickly run and test your recommender.
-
-You will implement the functions in recommender.py:
-- load_songs
-- score_song
-- recommend_songs
+Run it from the project root with: python -m src.main
 """
 
 from src.recommender import load_songs, recommend_songs
 
+CHILL_LOFI = {
+    "favorite_genre": "lofi",
+    "favorite_mood": "chill",
+    "secondary_genres": ["ambient", "jazz", "folk"],
+    "secondary_moods": ["focused", "relaxed"],
+    "target_energy": 0.35,
+    "target_valence": 0.55,
+    "target_danceability": 0.55,
+    "target_acousticness": 0.70,
+    "target_tempo_bpm": 76,
+}
+
+INTENSE_ROCK = {
+    "favorite_genre": "rock",
+    "favorite_mood": "intense",
+    "secondary_genres": ["metal"],
+    "secondary_moods": ["aggressive"],
+    "target_energy": 0.90,
+    "target_valence": 0.40,
+    "target_danceability": 0.50,
+    "target_acousticness": 0.10,
+    "target_tempo_bpm": 150,
+}
+
+
+def print_recommendations(name: str, profile: dict, songs: list, k: int = 5) -> None:
+    """Print the top k recommendations for one profile, with reasons one per line."""
+    print(f"=== Top {k} for {name} ===\n")
+    for rank, (song, score, reasons) in enumerate(recommend_songs(profile, songs, k), start=1):
+        print(f"{rank}. {song['title']} - {song['artist']}  (score {score:.3f})")
+        for reason in reasons:
+            print(f"     {reason}")
+        print()
+
 
 def main() -> None:
+    """Load the catalog and show recommendations for both sample profiles."""
     songs = load_songs("data/songs.csv")
-    print(f"Loaded songs: {len(songs)}")
+    print(f"Loaded songs: {len(songs)}\n")
 
-    # Starter example profile
-    user_prefs = {"genre": "pop", "mood": "happy", "energy": 0.8}
-
-    recommendations = recommend_songs(user_prefs, songs, k=5)
-
-    print("\nTop recommendations:\n")
-    for rec in recommendations:
-        # You decide the structure of each returned item.
-        # A common pattern is: (song, score, explanation)
-        song, score, explanation = rec
-        print(f"{song['title']} - Score: {score:.2f}")
-        print(f"Because: {explanation}")
-        print()
+    print_recommendations("chill_lofi", CHILL_LOFI, songs)
+    print_recommendations("intense_rock", INTENSE_ROCK, songs)
 
 
 if __name__ == "__main__":

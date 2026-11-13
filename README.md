@@ -17,17 +17,57 @@ Replace this paragraph with your own summary of what your version does.
 
 ## How The System Works
 
-Explain your design in plain language.
+Real platforms like Spotify and YouTube mostly learn from behavior (skips, replays, saves, playlist adds) and combine collaborative filtering ("people like you liked this") with content signals. This simulation is purely **content-based**: it has no multi-user behavior data, so it recommends songs whose attributes match one user's stated taste. It prioritizes explainable matching: genre first, then mood, then how *close* a song's numbers are to the user's targets.
 
-Some prompts to answer:
+### Song features
 
-- What features does each `Song` use in your system
-  - For example: genre, mood, energy, tempo
-- What information does your `UserProfile` store
-- How does your `Recommender` compute a score for each song
-- How do you choose which songs to recommend
+Each `Song` (loaded from `data/songs.csv`) has:
 
-You can include a simple diagram or bullet list if helpful.
+- `id`, `title`, `artist`: identification and display only
+- `genre`, `mood`: categorical, used for exact-match scoring
+- `energy`: 0-1, scored by closeness to the user's target
+- `acousticness`: 0-1, scored against the user's acoustic preference
+- `tempo_bpm`, `valence`, `danceability`: loaded but not scored yet (possible future features)
+
+### UserProfile
+
+Each `UserProfile` stores:
+
+- `favorite_genre`: compared with `Song.genre`
+- `favorite_mood`: compared with `Song.mood`
+- `target_energy`: the energy level they want (0-1)
+- `likes_acoustic`: whether they prefer acoustic (high `acousticness`) or non-acoustic songs
+
+### Scoring a song (scoring rule)
+
+One song plus the profile gives one number between 0 and 1. Each component is scored 0-1, then combined with weights that sum to 1:
+
+| Component | How it is scored | Starting weight |
+|---|---|---|
+| Genre | 1 if equal to `favorite_genre`, else 0 | 0.35 |
+| Mood | 1 if equal to `favorite_mood`, else 0 | 0.25 |
+| Energy | `1 - abs(song.energy - target_energy)` | 0.25 |
+| Acousticness | `song.acousticness` if `likes_acoustic`, else `1 - song.acousticness` | 0.15 |
+
+`score = 0.35*genre + 0.25*mood + 0.25*energy + 0.15*acoustic`
+
+The weights are starting values to tune, not final choices.
+
+### Choosing recommendations (ranking rule)
+
+1. Run the scoring rule on every song.
+2. Sort by score, highest first. Ties are broken deterministically (for example by title).
+3. Return the top `k` songs, each with a short explanation of which components matched.
+
+```
+songs.csv -> score each song vs UserProfile -> sort by score -> top k + reasons
+```
+
+Scoring looks at one song at a time. Ranking only needs the scores, so the weights can change without touching the sorting.
+
+### Known limitation
+
+Because it only matches attributes the user already stated, it tends to stay inside their existing taste (a filter bubble) and cannot find surprising songs the way collaborative filtering can.
 
 ---
 

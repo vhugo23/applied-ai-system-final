@@ -1,5 +1,8 @@
+import csv
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
+
+NUMERIC_FIELDS = ("energy", "tempo_bpm", "valence", "danceability", "acousticness")
 
 @dataclass
 class Song:
@@ -46,13 +49,21 @@ class Recommender:
         return "Explanation placeholder"
 
 def load_songs(csv_path: str) -> List[Dict]:
-    """
-    Loads songs from a CSV file.
-    Required by src/main.py
-    """
-    # TODO: Implement CSV loading logic
-    print(f"Loading songs from {csv_path}...")
-    return []
+    """Load songs from a CSV file into a list of dicts with numbers converted."""
+    try:
+        with open(csv_path, newline="", encoding="utf-8") as f:
+            rows = list(csv.DictReader(f))
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Song file not found: {csv_path}") from None
+
+    songs = []
+    for row in rows:
+        song = dict(row)
+        song["id"] = int(row["id"])
+        for field in NUMERIC_FIELDS:
+            song[field] = float(row[field])
+        songs.append(song)
+    return songs
 
 def score_song(user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
     """

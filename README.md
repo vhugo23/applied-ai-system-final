@@ -17,50 +17,54 @@ Replace this paragraph with your own summary of what your version does.
 
 ## How The System Works
 
-Real platforms like Spotify and YouTube mostly learn from behavior (skips, replays, saves, playlist adds) and combine collaborative filtering ("people like you liked this") with content signals. This simulation is purely **content-based**: it has no multi-user behavior data, so it recommends songs whose attributes match one user's stated taste. It prioritizes explainable matching: genre first, then mood, then how *close* a song's numbers are to the user's targets.
+Real platforms like Spotify and YouTube mostly learn from behavior (skips, replays, saves, playlist adds) and combine collaborative filtering ("people like you liked this") with content signals. This simulation is purely **content-based**: it has no multi-user behavior data, so it recommends songs whose attributes match one user's stated taste. It prioritizes explainable matching: genre and mood labels first, then how *close* each of a song's numbers is to the user's targets.
 
 ### Song features
 
-Each `Song` (loaded from `data/songs.csv`) has:
+Each song (loaded from `data/songs.csv` as a dict) has:
 
 - `id`, `title`, `artist`: identification and display only
-- `genre`, `mood`: categorical, used for exact-match scoring
-- `energy`: 0-1, scored by closeness to the user's target
-- `acousticness`: 0-1, scored against the user's acoustic preference
-- `tempo_bpm`, `valence`, `danceability`: loaded but not scored yet (possible future features)
+- `genre`, `mood`: categorical, scored by exact match, with partial credit for secondary labels
+- `energy`, `valence`, `danceability`, `acousticness`: 0-1, each scored by closeness to the user's target
+- `tempo_bpm`: scored by closeness to the user's target tempo
 
-### UserProfile
+### User profile
 
-Each `UserProfile` stores:
+A profile is a plain dict (the CLI defines `CHILL_LOFI` and `INTENSE_ROCK` in `src/main.py`) with:
 
-- `favorite_genre`: compared with `Song.genre`
-- `favorite_mood`: compared with `Song.mood`
-- `target_energy`: the energy level they want (0-1)
-- `likes_acoustic`: whether they prefer acoustic (high `acousticness`) or non-acoustic songs
+- `favorite_genre`, `favorite_mood`: exact matches for the song's `genre` and `mood`
+- `secondary_genres`, `secondary_moods`: lists that earn partial credit
+- `target_energy`, `target_valence`, `target_danceability`, `target_acousticness`: the values (0-1) the user wants
+- `target_tempo_bpm`: the tempo (BPM) the user wants
+
+The starter `UserProfile` dataclass is still in the code because the starter tests and the `Recommender` class use it, but the scoring functions use the dict profiles above.
 
 ### Scoring a song (scoring rule)
 
-One song plus the profile gives one number between 0 and 1. Each component is scored 0-1, then combined with weights that sum to 1:
+One song plus a profile gives one score from 0 to **7.0**. Every weight is a named constant at the top of `src/recommender.py`.
 
-| Component | How it is scored | Starting weight |
+| Component | How it is scored | Points |
 |---|---|---|
-| Genre | 1 if equal to `favorite_genre`, else 0 | 0.35 |
-| Mood | 1 if equal to `favorite_mood`, else 0 | 0.25 |
-| Energy | `1 - abs(song.energy - target_energy)` | 0.25 |
-| Acousticness | `song.acousticness` if `likes_acoustic`, else `1 - song.acousticness` | 0.15 |
+| Genre | exact match `favorite_genre` / in `secondary_genres` / neither | 2.0 / 1.0 / 0 |
+| Mood | exact match `favorite_mood` / in `secondary_moods` / neither | 1.0 / 0.5 / 0 |
+| Energy | `2.0 * (1 - abs(song - target))` | up to 2.0 |
+| Valence | `0.5 * (1 - abs(song - target))` | up to 0.5 |
+| Danceability | `0.5 * (1 - abs(song - target))` | up to 0.5 |
+| Acousticness | `0.5 * (1 - abs(song - target))` | up to 0.5 |
+| Tempo | `0.5 * (1 - abs(bpm - target_bpm) / 160)` | up to 0.5 |
 
-`score = 0.35*genre + 0.25*mood + 0.25*energy + 0.15*acoustic`
+Tempo is divided by 160 because the fixed BPM range is 40 to 200. The maximum is 2.0 + 1.0 + 2.0 + 0.5 + 0.5 + 0.5 + 0.5 = 7.0.
 
-The weights are starting values to tune, not final choices.
+Each term that earns points also produces a reason line such as `energy close to target (+1.840)`. Reasons show 3 decimals, so they add up to the total score to within a few thousandths. A term that earns 0 points is left out.
 
 ### Choosing recommendations (ranking rule)
 
 1. Run the scoring rule on every song.
-2. Sort by score, highest first. Ties are broken deterministically (for example by title).
-3. Return the top `k` songs, each with a short explanation of which components matched.
+2. Sort by score, highest first. Ties are broken by title, A to Z.
+3. Return the top `k` songs, each with its score and reasons.
 
 ```
-songs.csv -> score each song vs UserProfile -> sort by score -> top k + reasons
+songs.csv -> score each song vs profile -> sort by score (tie: title A-Z) -> top k + reasons
 ```
 
 Scoring looks at one song at a time. Ranking only needs the scores, so the weights can change without touching the sorting.

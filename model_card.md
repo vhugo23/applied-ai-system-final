@@ -21,16 +21,37 @@ Prompts:
 
 ## 3. How the Model Works  
 
-Explain your scoring approach in simple language.  
+**What it does.** This is a content-based recommender. It never looks at other listeners. It compares each song's attributes (genre, mood, energy, valence, danceability, acousticness and tempo) to one user's stated taste, gives every song a score, and returns the best matches with the reasons for each.
 
-Prompts:  
+**The taste profile.** A profile is a plain Python dictionary with a favorite genre and mood, a short list of secondary genres and moods, and a target number for energy, valence, danceability, acousticness and tempo (BPM). The project also keeps the small `UserProfile` dataclass from the starter code, because the starter tests and the `Recommender` class still use it. The dictionary profiles are what the CLI uses. They are richer than that dataclass, which only has four fields.
 
-- What features of each song are used (genre, energy, mood, etc.)  
-- What user preferences are considered  
-- How does the model turn those into a score  
-- What changes did you make from the starter logic  
+**Scoring one song (maximum 7.0).** All the weights are named constants at the top of `src/recommender.py`.
 
-Avoid code here. Pretend you are explaining the idea to a friend who does not program.
+| Part | Rule | Points |
+|---|---|---|
+| Genre | exact match / listed as secondary / neither | 2.0 / 1.0 / 0 |
+| Mood | exact match / listed as secondary / neither | 1.0 / 0.5 / 0 |
+| Energy | 2.0 x (1 - distance from target) | up to 2.0 |
+| Valence | 0.5 x (1 - distance from target) | up to 0.5 |
+| Danceability | 0.5 x (1 - distance from target) | up to 0.5 |
+| Acousticness | 0.5 x (1 - distance from target) | up to 0.5 |
+| Tempo | 0.5 x (1 - BPM distance / 160) | up to 0.5 |
+
+Distance is the absolute difference between the song's value and the target (all 0 to 1 scales). Tempo uses a fixed 40 to 200 BPM range, so 160 BPM is the largest possible gap. The maximum is 2.0 + 1.0 + 2.0 + 0.5 + 0.5 + 0.5 + 0.5 = 7.0, reached only by a song that matches the genre, the mood and every target exactly.
+
+**Ranking.** The program scores every song, sorts by score from highest to lowest, breaks ties by title from A to Z, and keeps the top k (5 in the CLI).
+
+**Reasons.** The scorer writes one line for each part that earned points, such as `energy close to target (+1.840)`, using the exact points added to the score. The printed lines add up to the song's total score to within a few thousandths (rounding). A part that earns zero points is left out of the list, so a missing line means "no points" (for example, no genre line means the genre did not match).
+
+**Changes from the starter.** The starter's `load_songs`, `score_song` and `recommend_songs` were empty stubs. They are now implemented. The starter `Recommender` class is unchanged and still returns placeholder results.
+
+**Known limits.**
+
+- The catalog has 18 songs and only one rock song (Storm Runner). The rock profile's genre match is rarely available, so its secondary list (metal) matters a lot. Without metal as a secondary genre, Gym Hero would outrank Iron Tide.
+- Genres and moods are exact-match text labels. "indie pop" earns no credit for a "pop" fan, and "chill" earns none for "relaxed" unless the profile lists it.
+- Secondary genres and moods are written by hand for each profile. They are not learned.
+- Scores for songs with no label match are close together, so lower ranks rest on small numeric differences.
+- Omitting zero-point terms from the reasons keeps them short, but it can hide why a song lost points.
 
 ---
 

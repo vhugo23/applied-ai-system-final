@@ -108,15 +108,99 @@ You can add more tests in `tests/test_recommender.py`.
 
 ## Sample Recommendation Output
 
-Paste a sample of your recommender's output here as a text block so a reader can see what it produces:
+Real output of `python -m src.main` (two sample profiles, top 5 each):
 
-```
-# e.g.:
-# User profile: genre=indie, mood=chill, energy=low
-# Recommendations:
-#   1. ...
-#   2. ...
-#   3. ...
+```text
+Loaded songs: 18
+
+=== Top 5 for chill_lofi ===
+
+1. Library Rain - Paper Lanterns  (score 6.867)
+     genre match (+2.000)
+     mood match (+1.000)
+     energy close to target (+2.000)
+     valence close to target (+0.475)
+     danceability close to target (+0.485)
+     acousticness close to target (+0.420)
+     tempo close to target (+0.487)
+
+2. Midnight Coding - LoRoom  (score 6.809)
+     genre match (+2.000)
+     mood match (+1.000)
+     energy close to target (+1.860)
+     valence close to target (+0.495)
+     danceability close to target (+0.465)
+     acousticness close to target (+0.495)
+     tempo close to target (+0.494)
+
+3. Focus Flow - LoRoom  (score 6.303)
+     genre match (+2.000)
+     secondary mood match (+0.500)
+     energy close to target (+1.900)
+     valence close to target (+0.480)
+     danceability close to target (+0.475)
+     acousticness close to target (+0.460)
+     tempo close to target (+0.487)
+
+4. Spacewalk Thoughts - Orbit Bloom  (score 5.580)
+     secondary genre match (+1.000)
+     mood match (+1.000)
+     energy close to target (+1.860)
+     valence close to target (+0.450)
+     danceability close to target (+0.430)
+     acousticness close to target (+0.390)
+     tempo close to target (+0.450)
+
+5. Coffee Shop Stories - Slow Stereo  (score 5.236)
+     secondary genre match (+1.000)
+     secondary mood match (+0.500)
+     energy close to target (+1.960)
+     valence close to target (+0.420)
+     danceability close to target (+0.495)
+     acousticness close to target (+0.405)
+     tempo close to target (+0.456)
+
+=== Top 5 for intense_rock ===
+
+1. Storm Runner - Voltline  (score 6.854)
+     genre match (+2.000)
+     mood match (+1.000)
+     energy close to target (+1.980)
+     valence close to target (+0.460)
+     danceability close to target (+0.420)
+     acousticness close to target (+0.500)
+     tempo close to target (+0.494)
+
+2. Iron Tide - Black Harbor  (score 5.136)
+     secondary genre match (+1.000)
+     secondary mood match (+0.500)
+     energy close to target (+1.840)
+     valence close to target (+0.425)
+     danceability close to target (+0.475)
+     acousticness close to target (+0.465)
+     tempo close to target (+0.431)
+
+3. Gym Hero - Max Pulse  (score 4.484)
+     mood match (+1.000)
+     energy close to target (+1.940)
+     valence close to target (+0.315)
+     danceability close to target (+0.310)
+     acousticness close to target (+0.475)
+     tempo close to target (+0.444)
+
+4. Night Drive Loop - Neon Echo  (score 3.355)
+     energy close to target (+1.700)
+     valence close to target (+0.455)
+     danceability close to target (+0.385)
+     acousticness close to target (+0.440)
+     tempo close to target (+0.375)
+
+5. Sunrise City - Neon Echo  (score 3.335)
+     energy close to target (+1.840)
+     valence close to target (+0.280)
+     danceability close to target (+0.355)
+     acousticness close to target (+0.460)
+     tempo close to target (+0.400)
 ```
 
 **Screenshot or video** *(optional)*: <!-- Insert a screenshot or demo video link here -->

@@ -91,6 +91,7 @@ def score_song(user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
     reasons = []
 
     def add(points: float, reason: str) -> None:
+        """Add points to the score and record a reason if they are above zero."""
         nonlocal score
         score += points
         if points > 0:

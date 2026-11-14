@@ -1,132 +1,357 @@
 # 🎧 Model Card: Music Recommender Simulation
 
-## 1. Model Name  
+## 1. Model Name
 
-Give your model a short, descriptive name.  
-Example: **VibeFinder 1.0**  
+**VibeFinder 1.0**
 
----
-
-## 2. Intended Use  
-
-Describe what your recommender is designed to do and who it is for. 
-
-Prompts:  
-
-- What kind of recommendations does it generate  
-- What assumptions does it make about the user  
-- Is this for real users or classroom exploration  
+A small program that picks songs from a short list by comparing them to one person's taste, and says why it picked each one.
 
 ---
 
-## 3. How the Model Works  
+## 2. Goal / Task
 
-**What it does.** This is a content-based recommender. It never looks at other listeners. It compares each song's attributes (genre, mood, energy, valence, danceability, acousticness and tempo) to one user's stated taste, gives every song a score, and returns the best matches with the reasons for each.
+The goal is to suggest the songs that best fit one listener's taste.
 
-**The taste profile.** A profile is a plain Python dictionary with a favorite genre and mood, a short list of secondary genres and moods, and a target number for energy, valence, danceability, acousticness and tempo (BPM). The project also keeps the small `UserProfile` dataclass from the starter code, because the starter tests and the `Recommender` class still use it. The dictionary profiles are what the CLI uses. They are richer than that dataclass, which only has four fields.
+It works from two things:
 
-**Scoring one song (maximum 7.0).** All the weights are named constants at the top of `src/recommender.py`.
+- A **taste profile**: a favorite genre and mood, a few backup genres and moods, and target numbers for energy, valence (how happy a song sounds), danceability, acousticness (how acoustic it sounds) and tempo (beats per minute).
+- The **song features** stored for each song in the catalog.
+
+It compares the profile to every song, gives each song a score, and returns the top five with the reasons. It does not learn from anyone's listening history. It only compares attributes.
+
+---
+
+## 3. Data Used
+
+- **Catalog:** 18 songs in `data/songs.csv`.
+- **Columns:** `id`, `title`, `artist`, `genre`, `mood`, `energy`, `tempo_bpm`, `valence`, `danceability`, `acousticness`.
+- **Number ranges:** energy, valence, danceability and acousticness run from 0 to 1. Tempo runs from 54 to 172 beats per minute. Energy in the catalog runs from 0.12 to 0.98.
+- **Genres (15):** pop (2 songs), lofi (3), rock, ambient, jazz, synthwave, indie pop, classical, hip hop, metal, country, reggae, folk, edm and r&b (1 each).
+- **Moods (14):** chill (3 songs), happy (2), intense (2), and relaxed, moody, focused, melancholy, confident, aggressive, nostalgic, peaceful, wistful, euphoric and romantic (1 each).
+
+**Limits of the data:**
+
+- The catalog is very small.
+- The first 10 songs came with the starter project. An AI assistant added the last 8 (ids 11 to 18) in this project, using genres and moods that were not in the file yet.
+- All titles and artists are invented.
+- There is only one rock song (Storm Runner). Most genres and moods have just one song.
+- Whole parts of musical taste are missing, such as lyrics, language, and anything about the artist or how popular a song is.
+
+---
+
+## 4. Algorithm Summary
+
+**Scoring one song (maximum 7.0).** The weights are named constants at the top of `src/recommender.py`. The scorer gives points for each part below and adds them up.
 
 | Part | Rule | Points |
 |---|---|---|
-| Genre | exact match / listed as secondary / neither | 2.0 / 1.0 / 0 |
-| Mood | exact match / listed as secondary / neither | 1.0 / 0.5 / 0 |
+| Genre | exact match / listed as a backup genre / neither | 2.0 / 1.0 / 0 |
+| Mood | exact match / listed as a backup mood / neither | 1.0 / 0.5 / 0 |
 | Energy | 2.0 x (1 - distance from target) | up to 2.0 |
 | Valence | 0.5 x (1 - distance from target) | up to 0.5 |
 | Danceability | 0.5 x (1 - distance from target) | up to 0.5 |
 | Acousticness | 0.5 x (1 - distance from target) | up to 0.5 |
-| Tempo | 0.5 x (1 - BPM distance / 160) | up to 0.5 |
+| Tempo | 0.5 x (1 - beats-per-minute distance / 160) | up to 0.5 |
 
-Distance is the absolute difference between the song's value and the target (all 0 to 1 scales). Tempo uses a fixed 40 to 200 BPM range, so 160 BPM is the largest possible gap. The maximum is 2.0 + 1.0 + 2.0 + 0.5 + 0.5 + 0.5 + 0.5 = 7.0, reached only by a song that matches the genre, the mood and every target exactly.
+"Distance" is the plain gap between the song's number and the target. The closer the song is, the more points it earns. Tempo uses a fixed range of 40 to 200 beats per minute, so 160 is the biggest possible gap. The top score is 2.0 + 1.0 + 2.0 + 0.5 + 0.5 + 0.5 + 0.5 = **7.0**. A song only reaches it by matching the genre, the mood and every target exactly.
 
-**Ranking.** The program scores every song, sorts by score from highest to lowest, breaks ties by title from A to Z, and keeps the top k (5 in the CLI).
+**Ranking.** The program scores every song. It sorts from highest score to lowest. If two songs tie, the one whose title comes first in A to Z order goes first. It keeps the top five.
 
-**Reasons.** The scorer writes one line for each part that earned points, such as `energy close to target (+1.840)`, using the exact points added to the score. The printed lines add up to the song's total score to within a few thousandths (rounding). A part that earns zero points is left out of the list, so a missing line means "no points" (for example, no genre line means the genre did not match).
+**Reasons.** Each part that earns points writes one line, such as `energy close to target (+1.840)`. The line shows the exact points added. The lines add up to the song's total score, give or take a few thousandths from rounding. A part that earns zero points is left out, so a missing line means "no points".
 
-**Changes from the starter.** The starter's `load_songs`, `score_song` and `recommend_songs` were empty stubs. They are now implemented. The starter `Recommender` class is unchanged and still returns placeholder results.
-
-**Known limits.**
-
-- The catalog has 18 songs and only one rock song (Storm Runner). The rock profile's genre match is rarely available, so its secondary list (metal) matters a lot. Without metal as a secondary genre, Gym Hero would outrank Iron Tide.
-- Genres and moods are exact-match text labels. "indie pop" earns no credit for a "pop" fan, and "chill" earns none for "relaxed" unless the profile lists it.
-- Secondary genres and moods are written by hand for each profile. They are not learned.
-- Scores for songs with no label match are close together, so lower ranks rest on small numeric differences.
-- Omitting zero-point terms from the reasons keeps them short, but it can hide why a song lost points.
+**Profiles.** The profiles the program uses are simple lists of settings. The older `UserProfile` shape from the starter project is still in the code. It has only four fields. The starter's `Recommender` class and its tests still use it, so I kept it. That class is unchanged and still gives placeholder answers.
 
 ---
 
-## 4. Data  
+## 5. Observed Behavior / Biases
 
-Describe the dataset the model uses.  
+All numbers below come from the real run of `python -m src.main` (see "Sample Recommendation Output" in the README) and from the catalog.
 
-Prompts:  
+- **Rock listeners fall off a cliff after rank 1.** Storm Runner, the only rock song, scores 6.854. Rank 2 (Iron Tide) scores 5.136. That is a drop of 1.718. For the lofi profile the first drop is only 0.058, because the catalog has three lofi songs.
+- **Most songs get no label points.** For intense_rock, 15 of the 18 songs earn no genre or mood points. For chill_lofi, 12 of 18 earn none. Those songs are ranked only by how close their numbers are.
+- **Lower ranks are packed together.** For intense_rock, ranks 4 to 8 span just 0.206 points (3.355 down to 3.149). Ranks 4 and 5 differ by 0.020 (Night Drive Loop 3.355, Sunrise City 3.335). Small number differences decide those places.
+- **The backup lists decide some results.** Iron Tide (metal) beats Gym Hero (pop) only because the rock profile lists metal as a backup genre and aggressive as a backup mood. In a quick test run without the metal backup, Iron Tide scored 4.14 and Gym Hero 4.48, so Gym Hero came first. A person writes these lists by hand. The program does not learn them.
+- **Labels must match exactly.** "indie pop" earns nothing for a "pop" fan. "relaxed" earns nothing for a "chill" fan unless the profile lists it. For chill_lofi, Coffee Shop Stories (jazz, relaxed) ranks 5th only because jazz and relaxed are listed as backups. It earns 1.5 label points that way.
+- **A pop song ranks 3rd for the rock profile.** Gym Hero (pop, intense) scores 4.484. It earns the 1.0 mood match and a high energy score (+1.940). That is a reasonable result for a listener who wants intense, high-energy songs. It shows that mood can lift a song from a different genre.
+- **Two songs by the same artist share the rock list.** Night Drive Loop and Sunrise City, both by Neon Echo, are ranks 4 and 5. Nothing in the program tries to vary artists.
 
-- How many songs are in the catalog  
-- What genres or moods are represented  
-- Did you add or remove data  
-- Are there parts of musical taste missing in the dataset  
+- **Labels can outweigh what the listener asked for.** For the conflicting profile (classical, melancholy, but energy 0.95), Cathedral Dust wins with 4.933. Its genre and mood give 3.0 of those points. Its energy is 0.12 against a target of 0.95, so it earns only +0.340 of a possible 2.0. The songs that fit the energy best (Iron Tide 3.324, Storm Runner 3.069) have no label match and rank behind it.
+- **A tempo target outside the 40 to 200 range breaks the reasons.** For the out-of-range tempo profile (target 400 BPM), every song's tempo term goes negative. The score quietly loses points, but no reason line is written for a negative term. Sunrise City's printed reasons add up to 6.425 but its score is 6.044. The lowest score drops to 0.559. This is a gap in the current code. I have not changed it.
+- **Unknown labels turn the system into a numbers-only ranking.** For the unknown-labels profile (k-pop, cozy), no song earns label points. The top 5 sit within 0.207 of each other (3.709 down to 3.502), so the order is nearly arbitrary.
+- **Pop listeners also fall off a cliff.** For high_energy_pop, only four songs earn any label points. Rank 4 scores 5.230 and rank 5 scores 3.650, a drop of 1.580. Rank 5 (Storm Runner, a rock song) is there on energy alone.
+- **Energy is the strongest pull across different tastes.** The rock and pop profiles share 3 of their 5 songs (Storm Runner, Gym Hero, Sunrise City), because energy is worth up to 2.0 points and both profiles want high energy.
 
----
+**What seems to work.** The three lofi songs take ranks 1 to 3 for chill_lofi, followed by an ambient and a jazz song, which fits that taste. For intense_rock, Storm Runner is first and the metal song Iron Tide is second. That matches my reading of the taste, but I did not test it with real listeners.
 
-## 5. Strengths  
-
-Where does your system seem to work well  
-
-Prompts:  
-
-- User types for which it gives reasonable results  
-- Any patterns you think your scoring captures correctly  
-- Cases where the recommendations matched your intuition  
-
----
-
-## 6. Limitations and Bias 
-
-Where the system struggles or behaves unfairly. 
-
-Prompts:  
-
-- Features it does not consider  
-- Genres or moods that are underrepresented  
-- Cases where the system overfits to one preference  
-- Ways the scoring might unintentionally favor some users  
+**Features not used:** lyrics, language, artist, popularity, and when or where someone listens.
 
 ---
 
-## 7. Evaluation  
+## 6. Evaluation Process
 
-How you checked whether the recommender behaved as expected. 
+**Profiles run through the program (`python -m src.main`):**
 
-Prompts:  
+- `chill_lofi`: lofi, chill, energy 0.35, valence 0.55, danceability 0.55, acousticness 0.70, tempo 76. Backup genres: ambient, jazz, folk. Backup moods: focused, relaxed.
+- `intense_rock`: rock, intense, energy 0.90, valence 0.40, danceability 0.50, acousticness 0.10, tempo 150. Backup genre: metal. Backup mood: aggressive.
+- `high_energy_pop`: pop, happy, energy 0.90, valence 0.80, danceability 0.85, acousticness 0.10, tempo 128. Backup genres: indie pop, edm. Backup mood: euphoric. (I chose these numbers and backup labels myself. Change them if they do not match your idea of this listener.)
 
-- Which user profiles you tested  
-- What you looked for in the recommendations  
-- What surprised you  
-- Any simple tests or comparisons you ran  
+**Results (top 5):**
 
-No need for numeric metrics unless you created some.
+| Rank | chill_lofi | Score | intense_rock | Score | high_energy_pop | Score |
+|---|---|---|---|---|---|---|
+| 1 | Library Rain | 6.867 | Storm Runner | 6.854 | Sunrise City | 6.719 |
+| 2 | Midnight Coding | 6.809 | Iron Tide | 5.136 | Gym Hero | 5.872 |
+| 3 | Focus Flow | 6.303 | Gym Hero | 4.484 | Rooftop Lights | 5.562 |
+| 4 | Spacewalk Thoughts | 5.580 | Night Drive Loop | 3.355 | Laser Bloom | 5.230 |
+| 5 | Coffee Shop Stories | 5.236 | Sunrise City | 3.335 | Storm Runner | 3.650 |
+
+**Main comparison: Iron Tide vs Gym Hero (intense_rock).** Iron Tide scores 5.136 and Gym Hero scores 4.484, so Iron Tide comes first. Iron Tide gets 1.5 label points (backup genre 1.0, backup mood 0.5). Gym Hero gets 1.0 (mood). Gym Hero gets a little back from energy (+1.940 against +1.840). This was the problem that the new scoring weights were meant to fix.
+
+### Adversarial profiles
+
+These three profiles were built to push the program into odd cases. They are defined in `src/experiments.py` and run with `python -m src.experiments`. This is the real terminal output.
+
+<details>
+<summary>Terminal output: adversarial profiles</summary>
+
+```text
+##### ADVERSARIAL PROFILES #####
+
+=== Top 5 for conflicting_sad_but_hyper ===
+
+1. Cathedral Dust - Helena Voss  (score 4.933)
+     genre match (+2.000)
+     mood match (+1.000)
+     energy close to target (+0.340)
+     valence close to target (+0.490)
+     danceability close to target (+0.475)
+     acousticness close to target (+0.490)
+     tempo close to target (+0.138)
+
+2. Iron Tide - Black Harbor  (score 3.324)
+     energy close to target (+1.940)
+     valence close to target (+0.475)
+     danceability close to target (+0.375)
+     acousticness close to target (+0.040)
+     tempo close to target (+0.494)
+
+3. Storm Runner - Voltline  (score 3.069)
+     energy close to target (+1.920)
+     valence close to target (+0.360)
+     danceability close to target (+0.270)
+     acousticness close to target (+0.075)
+     tempo close to target (+0.444)
+
+4. Gym Hero - Max Pulse  (score 2.766)
+     energy close to target (+1.960)
+     valence close to target (+0.215)
+     danceability close to target (+0.160)
+     acousticness close to target (+0.050)
+     tempo close to target (+0.381)
+
+5. Laser Bloom - Pixel Parade  (score 2.649)
+     energy close to target (+1.980)
+     valence close to target (+0.135)
+     danceability close to target (+0.130)
+     acousticness close to target (+0.035)
+     tempo close to target (+0.369)
+
+Lowest score for conflicting_sad_but_hyper: Island Hammock 1.971
+
+=== Top 5 for unknown_labels ===
+
+1. Dusty Porch Light - Willow Creek Band  (score 3.709)
+     energy close to target (+1.960)
+     valence close to target (+0.410)
+     danceability close to target (+0.465)
+     acousticness close to target (+0.380)
+     tempo close to target (+0.494)
+
+2. Midnight Coding - LoRoom  (score 3.576)
+     energy close to target (+1.840)
+     valence close to target (+0.470)
+     danceability close to target (+0.440)
+     acousticness close to target (+0.395)
+     tempo close to target (+0.431)
+
+3. Island Hammock - Sol Rivers  (score 3.565)
+     energy close to target (+1.900)
+     valence close to target (+0.350)
+     danceability close to target (+0.390)
+     acousticness close to target (+0.475)
+     tempo close to target (+0.450)
+
+4. Velvet Hours - Amara Lux  (score 3.532)
+     energy close to target (+1.900)
+     valence close to target (+0.400)
+     danceability close to target (+0.370)
+     acousticness close to target (+0.400)
+     tempo close to target (+0.463)
+
+5. Focus Flow - LoRoom  (score 3.502)
+     energy close to target (+1.800)
+     valence close to target (+0.455)
+     danceability close to target (+0.450)
+     acousticness close to target (+0.360)
+     tempo close to target (+0.438)
+
+Lowest score for unknown_labels: Laser Bloom 2.317
+
+=== Top 5 for out_of_range_tempo ===
+
+1. Sunrise City - Neon Echo  (score 6.044)
+     genre match (+2.000)
+     mood match (+1.000)
+     energy close to target (+1.960)
+     valence close to target (+0.480)
+     danceability close to target (+0.495)
+     acousticness close to target (+0.490)
+
+2. Gym Hero - Max Pulse  (score 4.772)
+     genre match (+2.000)
+     energy close to target (+1.740)
+     valence close to target (+0.485)
+     danceability close to target (+0.460)
+     acousticness close to target (+0.425)
+
+3. Rooftop Lights - Indigo Parade  (score 3.968)
+     mood match (+1.000)
+     energy close to target (+1.920)
+     valence close to target (+0.495)
+     danceability close to target (+0.490)
+     acousticness close to target (+0.425)
+
+4. Concrete Crown - Kid Marlow  (score 2.810)
+     energy close to target (+1.960)
+     valence close to target (+0.410)
+     danceability close to target (+0.450)
+     acousticness close to target (+0.440)
+
+5. Night Drive Loop - Neon Echo  (score 2.794)
+     energy close to target (+1.900)
+     valence close to target (+0.345)
+     danceability close to target (+0.465)
+     acousticness close to target (+0.490)
+
+Lowest score for out_of_range_tempo: Cathedral Dust 0.559
+```
+
+</details>
+
+- `conflicting_sad_but_hyper` (classical, melancholy, energy 0.95, acousticness 0.95, tempo 170): the song that matches the labels (Cathedral Dust, 4.933) wins even though its energy is very far from the target. See section 5.
+- `unknown_labels` (k-pop, cozy, every number near the middle): no label can match, so only the numbers count. Dusty Porch Light is first at 3.709. The top 5 span only 0.207.
+- `out_of_range_tempo` (pop, happy, tempo 400): tempo points go negative and are silently subtracted. No tempo lines appear in the reasons, and the reasons no longer add up to the score. See section 5.
+
+### Sensitivity experiment: genre halved, energy doubled
+
+I halved the genre weight (exact 2.0 to 1.0, backup 1.0 to 0.5) and doubled the energy weight (2.0 to 4.0). The maximum score becomes 8.0. Everything else stayed the same. I ran it on all three profiles.
+
+```text
+##### SENSITIVITY EXPERIMENT: genre exact 2.0 -> 1.0 (secondary 1.0 -> 0.5), energy 2.0 -> 4.0 #####
+(max score becomes 8.0)
+
+--- chill_lofi ---
+rank baseline                          experiment                        
+1    Library Rain 6.867                Library Rain 7.867                
+2    Midnight Coding 6.809             Midnight Coding 7.669             
+3    Focus Flow 6.303                  Focus Flow 7.202                  
+4    Spacewalk Thoughts 5.580          Spacewalk Thoughts 6.940          
+5    Coffee Shop Stories 5.236         Coffee Shop Stories 6.696         
+
+--- intense_rock ---
+rank baseline                          experiment                        
+1    Storm Runner 6.854                Storm Runner 7.834                
+2    Iron Tide 5.136                   Iron Tide 6.476                   
+3    Gym Hero 4.484                    Gym Hero 6.424                    
+4    Night Drive Loop 3.355            Sunrise City 5.175                
+5    Sunrise City 3.335                Laser Bloom 5.166                 
+
+--- high_energy_pop ---
+rank baseline                          experiment                        
+1    Sunrise City 6.719                Sunrise City 7.559                
+2    Gym Hero 5.872                    Gym Hero 6.812                    
+3    Rooftop Lights 5.562              Rooftop Lights 6.782              
+4    Laser Bloom 5.230                 Laser Bloom 6.610                 
+5    Storm Runner 3.650                Storm Runner 5.630                
+```
+
+What changed:
+
+- The top 3 songs and their order stayed the same for all three profiles. For chill_lofi and high_energy_pop the whole top 5 stayed in the same order.
+- For intense_rock, ranks 4 and 5 changed. Sunrise City (5.175) and Laser Bloom (5.166) replaced Night Drive Loop. Both have energy closer to 0.90.
+- Iron Tide still beats Gym Hero, but the gap shrank from 0.652 to 0.052 (6.476 against 6.424). The rock result is thin under these weights.
+- Takeaway: the best matches are stable. The lower places are sensitive to how much weight energy gets.
+
+### Pairwise comparisons (core profiles)
+
+```text
+##### PAIRWISE TOP-5 OVERLAP (core profiles) #####
+
+chill_lofi vs intense_rock: 0 shared []
+chill_lofi vs high_energy_pop: 0 shared []
+intense_rock vs high_energy_pop: 3 shared ['Storm Runner', 'Gym Hero', 'Sunrise City']
+```
+
+- **chill_lofi vs intense_rock: 0 shared songs.** These are opposite tastes: energy 0.35 against 0.90, and acousticness 0.70 against 0.10. The program separates them cleanly.
+- **chill_lofi vs high_energy_pop: 0 shared songs.** Same reason. The lofi list is quiet and acoustic, and the pop list is loud and danceable. It also shows that the lofi list needs its backup genres (ambient, jazz) to fill ranks 4 and 5.
+- **intense_rock vs high_energy_pop: 3 shared songs** (Storm Runner, Gym Hero, Sunrise City). Both profiles want high energy and low acousticness, and energy is the heaviest weight. Gym Hero is 3rd for rock and 2nd for pop. Sunrise City is 5th for rock (3.335, no label points) and 1st for pop (6.719). Labels are what pull these two lists apart at the top.
+
+**Tests in `tests/` (4 tests, all passing):**
+
+- `test_recommend_returns_songs_sorted_by_score` and `test_explain_recommendation_returns_non_empty_string` come from the starter. They check the starter `Recommender` class only. That class is still a placeholder.
+- `test_tie_break_sorts_equal_scores_by_title` checks that three songs with the same score come back in A to Z order by title.
+- `test_recommend_songs_returns_k_results_sorted_high_to_low` checks that asking for 3 results returns exactly 3, from highest score to lowest.
+
+The experiments in `src/experiments.py` have no tests of their own.
+
+**Quick experiments from the design stage.** I ran these in throwaway scripts on the real catalog before the experiment file existed. The scripts were not saved.
+
+- *Linear vs squared closeness.* Squared closeness gave the same top 3 for both original profiles. For chill_lofi the top 5 was identical. For intense_rock, ranks 4 to 6 reshuffled, but they were within 0.02 of each other. I kept the simple linear version.
+- *Mood weight raised from 1.0 to 3.0 (backup 1.5).* This made Gym Hero (6.48) beat Iron Tide (6.14) again. For chill_lofi it put Spacewalk Thoughts (7.58) above Focus Flow (7.30). I did not adopt it.
+- *Removing metal from the rock backup genres.* Gym Hero (4.48) beat Iron Tide (4.14), as noted in section 5.
+
+**Not yet run:** testing with real listeners.
 
 ---
 
-## 8. Future Work  
+## 7. Intended Use and Non-Intended Use
 
-Ideas for how you would improve the model next.  
+**Intended use:**
 
-Prompts:  
+- Classroom learning about how a simple recommender works.
+- Small simulations that show how scores, ranking and explanations fit together.
+- Exploring what happens when you change a weight or a profile.
 
-- Additional features or preferences  
-- Better ways to explain recommendations  
-- Improving diversity among the top results  
-- Handling more complex user tastes  
+**Not intended for:**
+
+- Real product recommendations. The catalog is 18 invented songs.
+- Judging or labeling people from their taste.
+- Anything that needs fairness guarantees. The program has not been checked for fairness across different kinds of listeners.
 
 ---
 
-## 9. Personal Reflection  
+## 8. Ideas for Improvement
 
-A few sentences about your experience.  
+1. **Make the catalog bigger,** with several songs per genre. With only one rock song, rock listeners drop from 6.854 to 5.136 after rank 1. More songs per genre would fix that.
+2. **Give partial credit for related genres** from a small shared table (for example, rock and metal), instead of a hand-written backup list for each profile. This would remove the dependence on lists like the one that put Iron Tide above Gym Hero.
+3. **Add a variety rule** so a top-5 list does not repeat an artist (Neon Echo took ranks 4 and 5 for intense_rock) or fill up with one genre.
 
-Prompts:  
+---
 
-- What you learned about recommender systems  
-- Something unexpected or interesting you discovered  
-- How this changed the way you think about music recommendation apps  
+## 9. Personal Reflection
+
+- What was my biggest learning moment during this project?
+
+  TODO: write in my own words
+
+- How did using AI tools help me, and when did I need to double-check them?
+
+  TODO: write in my own words
+
+- What surprised me about how simple algorithms can still "feel" like recommendations?
+
+  TODO: write in my own words
+
+- What would I try next if I extended this project?
+
+  TODO: write in my own words

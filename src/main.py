@@ -30,6 +30,18 @@ INTENSE_ROCK = {
     "target_tempo_bpm": 150,
 }
 
+HIGH_ENERGY_POP = {
+    "favorite_genre": "pop",
+    "favorite_mood": "happy",
+    "secondary_genres": ["indie pop", "edm"],
+    "secondary_moods": ["euphoric"],
+    "target_energy": 0.90,
+    "target_valence": 0.80,
+    "target_danceability": 0.85,
+    "target_acousticness": 0.10,
+    "target_tempo_bpm": 128,
+}
+
 
 def print_recommendations(name: str, profile: dict, songs: list, k: int = 5) -> None:
     """Print the top k recommendations for one profile, with reasons one per line."""
@@ -48,6 +60,7 @@ def main() -> None:
 
     print_recommendations("chill_lofi", CHILL_LOFI, songs)
     print_recommendations("intense_rock", INTENSE_ROCK, songs)
+    print_recommendations("high_energy_pop", HIGH_ENERGY_POP, songs)
 
 
 if __name__ == "__main__":

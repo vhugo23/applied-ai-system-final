@@ -112,7 +112,7 @@ You can add more tests in `tests/test_recommender.py`.
 
 ## Sample Recommendation Output
 
-Real output of `python -m src.main` (two sample profiles, top 5 each):
+Real output of `python -m src.main` (three sample profiles, top 5 each):
 
 ```text
 Loaded songs: 18
@@ -205,7 +205,53 @@ Loaded songs: 18
      danceability close to target (+0.355)
      acousticness close to target (+0.460)
      tempo close to target (+0.400)
+
+=== Top 5 for high_energy_pop ===
+
+1. Sunrise City - Neon Echo  (score 6.719)
+     genre match (+2.000)
+     mood match (+1.000)
+     energy close to target (+1.840)
+     valence close to target (+0.480)
+     danceability close to target (+0.470)
+     acousticness close to target (+0.460)
+     tempo close to target (+0.469)
+
+2. Gym Hero - Max Pulse  (score 5.872)
+     genre match (+2.000)
+     energy close to target (+1.940)
+     valence close to target (+0.485)
+     danceability close to target (+0.485)
+     acousticness close to target (+0.475)
+     tempo close to target (+0.487)
+
+3. Rooftop Lights - Indigo Parade  (score 5.562)
+     secondary genre match (+1.000)
+     mood match (+1.000)
+     energy close to target (+1.720)
+     valence close to target (+0.495)
+     danceability close to target (+0.485)
+     acousticness close to target (+0.375)
+     tempo close to target (+0.487)
+
+4. Laser Bloom - Pixel Parade  (score 5.230)
+     secondary genre match (+1.000)
+     secondary mood match (+0.500)
+     energy close to target (+1.880)
+     valence close to target (+0.435)
+     danceability close to target (+0.455)
+     acousticness close to target (+0.460)
+     tempo close to target (+0.500)
+
+5. Storm Runner - Voltline  (score 3.650)
+     energy close to target (+1.980)
+     valence close to target (+0.340)
+     danceability close to target (+0.405)
+     acousticness close to target (+0.500)
+     tempo close to target (+0.425)
 ```
+
+Adversarial profiles, a weight experiment and profile comparisons are run with `python -m src.experiments` (output is pasted in `model_card.md`).
 
 **Screenshot or video** *(optional)*: <!-- Insert a screenshot or demo video link here -->
 

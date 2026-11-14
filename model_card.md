@@ -81,6 +81,8 @@ All numbers below come from the real run of `python -m src.main` (see "Sample Re
 - **Pop listeners also fall off a cliff.** For high_energy_pop, only four songs earn any label points. Rank 4 scores 5.230 and rank 5 scores 3.650, a drop of 1.580. Rank 5 (Storm Runner, a rock song) is there on energy alone.
 - **Energy is the strongest pull across different tastes.** The rock and pop profiles share 3 of their 5 songs (Storm Runner, Gym Hero, Sunrise City), because energy is worth up to 2.0 points and both profiles want high energy.
 
+**Biggest weakness.** The system lets labels override numbers. In my conflicting profile (classical, melancholy, energy 0.95), Cathedral Dust won with 4.933 even though its energy fit earned only +0.340 of 2.0. Genre and mood gave it 3.0 points, more than any song can earn from energy alone. A listener whose labels and numbers disagree gets results that ignore half of what they asked for.
+
 **What seems to work.** The three lofi songs take ranks 1 to 3 for chill_lofi, followed by an ambient and a jazz song, which fits that taste. For intense_rock, Storm Runner is first and the metal song Iron Tide is second. That matches my reading of the taste, but I did not test it with real listeners.
 
 **Features not used:** lyrics, language, artist, popularity, and when or where someone listens.
@@ -340,18 +342,14 @@ The experiments in `src/experiments.py` have no tests of their own.
 
 ## 9. Personal Reflection
 
-- What was my biggest learning moment during this project?
+**My biggest learning moment.** For the rock profile, Iron Tide (metal) lost to Gym Hero (pop) until I listed metal as a backup genre. Then Iron Tide won, 5.136 to 4.484. I had assumed a scoring rule was neutral, but my hand-written backup list flipped the ranking. When I halved the genre weight and doubled the energy weight, the lead shrank to 0.052, so that win is fragile.
 
-  TODO: write in my own words
+**How AI helped, and when I double-checked it.** The AI wrote the song loader, the scoring function, the tests and the first drafts of the docs much faster than I could. It also explained the difference between `sorted()` and `.sort()`. But I had to check its work. The reasons it printed with 2 decimals added up to 5.12 while the score was 5.14, so I asked for 3 decimals. The README still described the old 0.35/0.25/0.25/0.15 weights until the AI flagged it and I had it updated. When we ran a 400 BPM profile, the tempo term went negative and the reasons stopped adding up to the score. For now I documented that instead of fixing it. The AI was confident and mostly right, but its mistakes were quiet ones (rounding, stale docs, untested edge cases), so I needed to check the arithmetic and the changes myself.
 
-- How did using AI tools help me, and when did I need to double-check them?
+**What surprised me about simple algorithms.** A handful of weighted rules produced lists that looked sensible. For chill_lofi, the three lofi songs took ranks 1 to 3, and each came with reasons like "energy close to target (+1.860)". Those explanations are what make it feel smart. But it does not understand music. For the k-pop profile, no song earned any label points and the top five were only 0.207 apart, so the order was close to arbitrary. A good-looking recommendation can hide how little is going on.
 
-  TODO: write in my own words
+**What I would try next.**
 
-- What surprised me about how simple algorithms can still "feel" like recommendations?
-
-  TODO: write in my own words
-
-- What would I try next if I extended this project?
-
-  TODO: write in my own words
+- Add more songs per genre. Rock listeners drop from 6.854 to 5.136 after rank 1. I would know it worked if that drop shrank.
+- Limit the tempo term so it cannot go below zero, and check the inputs. I would know it worked if the reasons added up to the score for the 400 BPM profile.
+- Add a variety rule. Neon Echo took ranks 4 and 5 for intense_rock. I would check that no artist appears twice in a top five.

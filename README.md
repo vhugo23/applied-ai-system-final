@@ -11,7 +11,7 @@ Your goal is to:
 - Evaluate what your system gets right and wrong
 - Reflect on how this mirrors real world AI recommenders
 
-Replace this paragraph with your own summary of what your version does.
+**What my version does:** it is a command-line music recommender. It loads an 18-song catalog, scores every song against a taste profile (genre, mood, energy, valence, danceability, acousticness and tempo, max score 7.0), ranks the songs, and prints the top 5 with the reasons for each. Run it with `python -m src.main`.
 
 ---
 
@@ -259,25 +259,27 @@ Adversarial profiles, a weight experiment and profile comparisons are run with `
 
 ## Experiments You Tried
 
-Use this section to document the experiments you ran. For example:
+Full outputs and the numbers behind these notes are in [model_card.md](model_card.md), section 6. Run them with `python -m src.experiments`.
 
-- What happened when you changed the weight on genre from 2.0 to 0.5
-- What happened when you added tempo or valence to the score
-- How did your system behave for different types of users
+- **Three profiles:** chill_lofi, intense_rock and high_energy_pop. Lofi shares no songs with rock or pop in the top 5. Rock and pop share 3 (Storm Runner, Gym Hero, Sunrise City) because both want high energy and energy is the heaviest weight.
+- **Weight change (genre halved, energy doubled):** the top 3 stayed the same for every profile. For intense_rock, Iron Tide's lead over Gym Hero shrank from 0.652 to 0.052.
+- **Adversarial profiles:**
+  - Conflicting taste (classical, melancholy, energy 0.95): Cathedral Dust won at 4.933 on label points, even though its energy fit earned only +0.340 of 2.0.
+  - Unknown genre and mood (k-pop, cozy): no song earned label points, and the top 5 sat within 0.207.
+  - Out-of-range tempo (400 BPM): the tempo term went negative, and the reasons stopped adding up to the score.
 
 ---
 
 ## Limitations and Risks
 
-Summarize some limitations of your recommender.
+- **Tiny catalog:** 18 songs, with only one rock song. Rock and pop listeners drop sharply after rank 1 (rock: 6.854 to 5.136).
+- **Exact-match labels:** "indie pop" earns nothing for a "pop" fan unless the profile lists it as a backup.
+- **Hand-written backup lists:** without metal as a backup genre, Gym Hero beats Iron Tide for the rock profile.
+- **Labels can outweigh numbers:** genre and mood together give up to 3.0 points, more than energy can (2.0).
+- **No popularity or listening history:** it cannot learn from behavior, so it stays inside the taste it is given. Popularity bias cannot show up here because the catalog has no popularity data.
+- **Tempo is not limited:** a target far outside 40 to 200 BPM lowers scores without a reason line. Not fixed yet.
 
-Examples:
-
-- It only works on a tiny catalog
-- It does not understand lyrics or language
-- It might over favor one genre or mood
-
-You will go deeper on this in your model card.
+See [model_card.md](model_card.md) for the details and ideas for improvement.
 
 ---
 
@@ -287,10 +289,4 @@ Read and complete `model_card.md`:
 
 [**Model Card**](model_card.md)
 
-Write 1 to 2 paragraphs here about what you learned:
-
-- about how recommenders turn data into predictions
-- about where bias or unfairness could show up in systems like this
-
-
-
+A simple weighted score plus clear reasons is enough to make a recommender feel smart. My biggest lesson was that the rules are not neutral: a hand-written backup list (metal for the rock profile) flipped Iron Tide ahead of Gym Hero, 5.136 to 4.484, and under different weights that lead shrank to 0.052. Bias shows up in small choices like the catalog (one rock song), exact-match labels, and how much weight labels get compared with numbers. The AI wrote most of the code quickly, but I had to check the arithmetic, the rounding and the docs myself, because its mistakes were quiet ones. The longer reflection is in section 9 of the model card.

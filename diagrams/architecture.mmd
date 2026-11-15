@@ -1,54 +1,55 @@
 flowchart TD
     subgraph INPUT
-        P["User profile<br/>fav genre and mood<br/>secondary genres and moods<br/>targets: energy, valence,<br/>danceability, acousticness, tempo"]
-        C["data/songs.csv<br/>18 songs"]
+        P["User profile dict<br/>favorite_genre, favorite_mood,<br/>secondary_genres, secondary_moods,<br/>target_energy, target_valence, target_danceability,<br/>target_acousticness, target_tempo_bpm"]
+        C["data/songs.csv<br/>load_songs() returns 18 song dicts"]
     end
 
-    subgraph PROCESS["PROCESS: loop over every song"]
-        L1["1. Load next row<br/>into song dict<br/>numeric fields to float"]
+    RS["recommend_songs(user_prefs, songs, k)<br/>calls recommend_with_report()"]
 
-        subgraph SCORING["SCORING RULE: one song + profile = one score"]
-            G["Genre<br/>2.0 exact, 1.0 secondary, 0 else"]
-            M["Mood<br/>1.0 exact, 0.5 secondary, 0 else"]
-            E["Energy similarity<br/>weight 2.0"]
-            N["Valence, danceability,<br/>acousticness similarity<br/>weight 0.5 each"]
-            T["Tempo similarity, weight 0.5<br/>1 - abs of bpm diff / 160"]
-            S["Total score, max 7.0<br/>plus per-feature breakdown"]
-            G --> S
-            M --> S
-            E --> S
-            N --> S
-            T --> S
-        end
-
-        A["3. Append song, score,<br/>breakdown to results list"]
-        D{"More songs<br/>in CSV?"}
-
-        L1 --> G
-        L1 --> M
-        L1 --> E
-        L1 --> N
-        L1 --> T
-        S --> A
-        A --> D
-        D -- "yes: next song" --> L1
+    subgraph GUARD["GUARDRAIL 1: validate_profile(profile, songs)"]
+        V["Clamp 0-1 features and tempo 40-200 BPM<br/>Fill missing keys: 0.5, or 120 BPM for tempo<br/>Warn if genre or mood not in catalog<br/>Never raises, returns clean_profile, warnings"]
     end
 
-    subgraph OUTPUT
-        subgraph RANKING["RANKING RULE: scored list = ordered list"]
-            R1["Sort by score, highest first"]
-            R2["Tie-break by title A-Z"]
-            R3["Keep top K"]
-            R1 --> R2 --> R3
-        end
-        O["Top K recommendations<br/>title, artist, score<br/>short explanation from breakdown"]
-        R3 --> O
+    subgraph SCORE["SCORE EVERY SONG: _ranked(profile, songs)"]
+        SS["score_song(profile, song) for each song<br/>genre 2.0 exact / 1.0 secondary<br/>mood 1.0 exact / 0.5 secondary<br/>energy 2.0, valence, danceability,<br/>acousticness 0.5 each, tempo 0.5<br/>returns score and reasons, max 7.0"]
+        RK["Rank: sort by score high to low,<br/>ties by title A-Z"]
+        SS --> RK
     end
 
-    C --> L1
-    P --> G
-    P --> M
-    P --> E
-    P --> N
-    P --> T
-    D -- "no: all scored" --> R1
+    subgraph CHECK["GUARDRAIL 2: self-check on the top 5"]
+        CF["recommendation_confidence(results)<br/>gap rank 1-2, spread of top 5,<br/>genre or mood label matched, 0-1"]
+        SC["self_check(results, profile) flags:<br/>low_confidence, no_label_match,<br/>clustered_scores, artist_repeated"]
+        F{"Any flag?"}
+        CF --> SC --> F
+    end
+
+    subgraph FALLBACK["FALLBACK RE-RANK: recommend_with_report, in order, each once"]
+        FB1["no_label_match:<br/>_widen_profile() then _ranked()<br/>kept if confidence does not drop"]
+        FB2["low_confidence or clustered_scores:<br/>_ranked(numeric_only=True)<br/>kept if top-5 spread grows"]
+        FB3["artist_repeated:<br/>_diversify(), MAX_PER_ARTIST = 1"]
+        FB1 --> FB2 --> FB3
+    end
+
+    O["Output: top k results (song, score, reasons)<br/>notes of what was flagged and changed<br/>added to rank 1 reasons as self-check: lines"]
+
+    subgraph HUMAN["HUMAN REVIEW"]
+        LOG[("logs/app.log<br/>validation warnings and self-check notes<br/>written with logging")]
+        EV["python -m src.evaluate<br/>runs every profile, prints the markdown table<br/>Profile, Input issue, Guardrail fired, Confidence,<br/>Self-check result, Pass/Fail<br/>saved to evaluation_output.txt"]
+        REV(["Person reads the table and the log,<br/>then adjusts rules or thresholds"])
+        EV --> REV
+        LOG --> REV
+    end
+
+    P --> RS
+    C --> RS
+    RS --> V
+    V --> SS
+    V -. "each warning logged" .-> LOG
+    RK --> CF
+    F -- "no flags" --> O
+    F -- "yes" --> FB1
+    FB3 --> O
+    FB1 -. "each note logged" .-> LOG
+    FB2 -. "each note logged" .-> LOG
+    FB3 -. "each note logged" .-> LOG
+    O --> EV

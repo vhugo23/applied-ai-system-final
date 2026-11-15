@@ -4,7 +4,9 @@ Command line runner for the Music Recommender Simulation.
 Run it from the project root with: python -m src.main
 """
 
-from src.recommender import load_songs, recommend_songs
+from src.recommender import (
+    SELF_CHECK_PREFIX, load_songs, recommend_songs, recommendation_confidence,
+)
 
 CHILL_LOFI = {
     "favorite_genre": "lofi",
@@ -45,11 +47,18 @@ HIGH_ENERGY_POP = {
 
 def print_recommendations(name: str, profile: dict, songs: list, k: int = 5) -> None:
     """Print the top k recommendations for one profile, with reasons one per line."""
-    print(f"=== Top {k} for {name} ===\n")
-    for rank, (song, score, reasons) in enumerate(recommend_songs(profile, songs, k), start=1):
+    results = recommend_songs(profile, songs, k)
+    print(f"=== Top {k} for {name} (confidence {recommendation_confidence(results):.2f}) ===\n")
+    for rank, (song, score, reasons) in enumerate(results, start=1):
         print(f"{rank}. {song['title']} - {song['artist']}  (score {score:.3f})")
         for reason in reasons:
-            print(f"     {reason}")
+            if not reason.startswith(SELF_CHECK_PREFIX):
+                print(f"     {reason}")
+        print()
+    notes = [r for r in (results[0][2] if results else []) if r.startswith(SELF_CHECK_PREFIX)]
+    for note in notes:  # set-level notes are stored on the rank 1 result; print them once
+        print(f"  {note}")
+    if notes:
         print()
 
 

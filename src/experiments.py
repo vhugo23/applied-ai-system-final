@@ -54,7 +54,7 @@ def run_with_weights(overrides: dict, profile: dict, songs: list, k: int = 5) ->
             ("danceability", "target_danceability", recommender.DANCEABILITY_WEIGHT),
             ("acousticness", "target_acousticness", recommender.ACOUSTICNESS_WEIGHT),
         )
-        return recommend_songs(profile, songs, k)
+        return recommend_songs(profile, songs, k, self_check_enabled=False)
     finally:
         for name, value in saved.items():
             setattr(recommender, name, value)
@@ -66,7 +66,7 @@ def run_adversarial(songs: list) -> None:
     print("##### ADVERSARIAL PROFILES #####\n")
     for name, profile in ADVERSARIAL_PROFILES.items():
         print_recommendations(name, profile, songs)
-        everything = recommend_songs(profile, songs, k=len(songs))
+        everything = recommend_songs(profile, songs, k=len(songs), self_check_enabled=False)
         print(f"Lowest score for {name}: {everything[-1][0]['title']} {everything[-1][1]:.3f}\n")
 
 
@@ -78,7 +78,7 @@ def run_sensitivity(songs: list) -> None:
     print("##### SENSITIVITY EXPERIMENT: genre exact 2.0 -> 1.0 (secondary 1.0 -> 0.5), energy 2.0 -> 4.0 #####")
     print("(max score becomes 8.0)\n")
     for name, profile in CORE_PROFILES.items():
-        base = recommend_songs(profile, songs, k=5)
+        base = recommend_songs(profile, songs, k=5, self_check_enabled=False)
         changed = run_with_weights(experiment, profile, songs, k=5)
         print(f"--- {name} ---")
         print(f"{'rank':<5}{'baseline':<34}{'experiment':<34}")
@@ -93,7 +93,7 @@ def run_pairwise(songs: list) -> None:
     """Print the top-5 overlap between each pair of core profiles."""
     print("##### PAIRWISE TOP-5 OVERLAP (core profiles) #####\n")
     tops = {
-        name: [song["title"] for song, _, _ in recommend_songs(profile, songs, k=5)]
+        name: [song["title"] for song, _, _ in recommend_songs(profile, songs, k=5, self_check_enabled=False)]
         for name, profile in CORE_PROFILES.items()
     }
     for (name_a, titles_a), (name_b, titles_b) in combinations(tops.items(), 2):

@@ -65,7 +65,7 @@ It compares the profile to every song, gives each song a score, and returns the 
 
 ## 5. Observed Behavior / Biases
 
-All numbers below come from the real run of `python -m src.main` (see "Sample Recommendation Output" in the README) and from the catalog.
+**Project 3 baseline.** The bullets below describe the original system, before the guardrails and the self-check were added. Their numbers come from the real run of `python -m src.main` at that time and from the catalog. What changed in VibeFinder 2.0 is in "Current system (VibeFinder 2.0)" at the end of this section.
 
 - **Rock listeners fall off a cliff after rank 1.** Storm Runner, the only rock song, scores 6.854. Rank 2 (Iron Tide) scores 5.136. That is a drop of 1.718. For the lofi profile the first drop is only 0.058, because the catalog has three lofi songs.
 - **Most songs get no label points.** For intense_rock, 15 of the 18 songs earn no genre or mood points. For chill_lofi, 12 of 18 earn none. Those songs are ranked only by how close their numbers are.
@@ -87,6 +87,16 @@ All numbers below come from the real run of `python -m src.main` (see "Sample Re
 
 **Features not used:** lyrics, language, artist, popularity, and when or where someone listens.
 
+### Current system (VibeFinder 2.0)
+
+The baseline bullets above stay as the Project 3 results. This is how each one looks now, from `python -m src.main` and `python -m src.evaluate` with the guardrails on. Confidence for the three core profiles: chill_lofi 0.74, intense_rock 1.00, high_energy_pop 1.00.
+
+- **Repeated artists are now capped.** Neon Echo no longer fills ranks 4 and 5 for intense_rock: Sunrise City (3.335) is dropped and Laser Bloom (Pixel Parade, 3.286) takes rank 5. The cap has a cost. For chill_lofi it drops Focus Flow (LoRoom, 6.303), a strong match, so the top 5 becomes Library Rain, Midnight Coding, Spacewalk Thoughts, Coffee Shop Stories and Pine Smoke Letters (4.355), and only two lofi songs remain in it.
+- **The tempo gap is fixed.** `validate_profile` clamps a 400 BPM target to 200 and logs `target_tempo_bpm=400 is outside 40-200; clamped to 200`. Sunrise City now scores 6.669 and has a tempo line (+0.244). The reasons add up to the score for all 18 songs, which `test_400_bpm_reasons_sum_to_score_for_every_song` checks.
+- **Unknown labels are detected, and partly repaired.** For k-pop and cozy the self-check fires four flags (low confidence 0.12, no label match, scores within 0.206, LoRoom repeated). It widens the secondary labels with the genres and moods of the 3 nearest songs, tries a numeric-only ranking and reverts it, and caps LoRoom. Confidence ends at 0.58. The new top 5 (Dusty Porch Light, Midnight Coding, Island Hammock, Library Rain, Spacewalk Thoughts) is still driven by borrowed labels and numbers, not by knowing the listener's genre.
+- **Labels over numbers is not caught.** The conflicting profile (classical, melancholy, energy 0.95) raises no flag and gets confidence 1.00, so Cathedral Dust still wins on label points. The self-check measures separation and label matches, not whether the result fits the numbers.
+- **Still true and unchanged:** the one rock song, exact-match labels, hand-written backup lists, and the fall-off after rank 1 for rock and pop listeners. The guardrails do not change the catalog or the weights.
+
 ---
 
 ## 6. Evaluation Process
@@ -97,7 +107,7 @@ All numbers below come from the real run of `python -m src.main` (see "Sample Re
 - `intense_rock`: rock, intense, energy 0.90, valence 0.40, danceability 0.50, acousticness 0.10, tempo 150. Backup genre: metal. Backup mood: aggressive.
 - `high_energy_pop`: pop, happy, energy 0.90, valence 0.80, danceability 0.85, acousticness 0.10, tempo 128. Backup genres: indie pop, edm. Backup mood: euphoric. (I chose these numbers and backup labels myself. Change them if they do not match your idea of this listener.)
 
-**Results (top 5):**
+**Results (top 5), Project 3 baseline (before the guardrails and self-check):**
 
 | Rank | chill_lofi | Score | intense_rock | Score | high_energy_pop | Score |
 |---|---|---|---|---|---|---|
@@ -107,14 +117,25 @@ All numbers below come from the real run of `python -m src.main` (see "Sample Re
 | 4 | Spacewalk Thoughts | 5.580 | Night Drive Loop | 3.355 | Laser Bloom | 5.230 |
 | 5 | Coffee Shop Stories | 5.236 | Sunrise City | 3.335 | Storm Runner | 3.650 |
 
-**Main comparison: Iron Tide vs Gym Hero (intense_rock).** Iron Tide scores 5.136 and Gym Hero scores 4.484, so Iron Tide comes first. Iron Tide gets 1.5 label points (backup genre 1.0, backup mood 0.5). Gym Hero gets 1.0 (mood). Gym Hero gets a little back from energy (+1.940 against +1.840). This was the problem that the new scoring weights were meant to fix.
+**Results (top 5), current system (VibeFinder 2.0, self-check on).** Same profiles, run with `python -m src.main`. Only the artist cap changed these lists (chill_lofi lost Focus Flow, intense_rock lost Sunrise City); high_energy_pop had no flags.
 
-### Adversarial profiles
+| Rank | chill_lofi | Score | intense_rock | Score | high_energy_pop | Score |
+|---|---|---|---|---|---|---|
+| 1 | Library Rain | 6.867 | Storm Runner | 6.854 | Sunrise City | 6.719 |
+| 2 | Midnight Coding | 6.809 | Iron Tide | 5.136 | Gym Hero | 5.872 |
+| 3 | Spacewalk Thoughts | 5.580 | Gym Hero | 4.484 | Rooftop Lights | 5.562 |
+| 4 | Coffee Shop Stories | 5.236 | Night Drive Loop | 3.355 | Laser Bloom | 5.230 |
+| 5 | Pine Smoke Letters | 4.355 | Laser Bloom | 3.286 | Storm Runner | 3.650 |
+| Confidence | | 0.74 | | 1.00 | | 1.00 |
 
-These three profiles were built to push the program into odd cases. They are defined in `src/experiments.py` and run with `python -m src.experiments`. This is the real terminal output.
+**Main comparison: Iron Tide vs Gym Hero (intense_rock), Project 3 baseline.** Iron Tide scores 5.136 and Gym Hero scores 4.484, so Iron Tide comes first. Iron Tide gets 1.5 label points (backup genre 1.0, backup mood 0.5). Gym Hero gets 1.0 (mood). Gym Hero gets a little back from energy (+1.940 against +1.840). This was the problem that the new scoring weights were meant to fix.
+
+### Adversarial profiles (Project 3 baseline)
+
+These three profiles were built to push the program into odd cases. They are defined in `src/experiments.py` and run with `python -m src.experiments`. The output below is the real terminal output from the Project 3 baseline, before the guardrails. Today the same command prints the same rankings for the conflicting profile, but each heading also shows a confidence and the self-check notes are printed under the list, and the other two profiles change as described after the bullets.
 
 <details>
-<summary>Terminal output: adversarial profiles</summary>
+<summary>Terminal output: adversarial profiles (Project 3 baseline)</summary>
 
 ```text
 ##### ADVERSARIAL PROFILES #####
@@ -244,9 +265,15 @@ Lowest score for out_of_range_tempo: Cathedral Dust 0.559
 - `unknown_labels` (k-pop, cozy, every number near the middle): no label can match, so only the numbers count. Dusty Porch Light is first at 3.709. The top 5 span only 0.207.
 - `out_of_range_tempo` (pop, happy, tempo 400): tempo points go negative and are silently subtracted. No tempo lines appear in the reasons, and the reasons no longer add up to the score. See section 5.
 
-### Sensitivity experiment: genre halved, energy doubled
+**The same three profiles in the current system.** All three pass the evaluation table below.
 
-I halved the genre weight (exact 2.0 to 1.0, backup 1.0 to 0.5) and doubled the energy weight (2.0 to 4.0). The maximum score becomes 8.0. Everything else stayed the same. I ran it on all three profiles.
+- `conflicting_sad_but_hyper`: no flags, confidence 1.00, same ranking as the baseline.
+- `unknown_labels`: confidence 0.12 before the self-check and 0.58 after. Flags fired: low confidence, no label match, clustered scores, repeated artist. Fallbacks applied: widen labels, then the artist cap. A numeric-only ranking was tried and reverted.
+- `out_of_range_tempo`: the clamp guardrail fires (400 to 200), the top 5 is Sunrise City 6.669, Gym Hero 5.397, Rooftop Lights 4.593, Concrete Crown 3.435, Storm Runner 3.350, confidence 1.00, and every song has a tempo line. The artist cap also fired (Night Drive Loop dropped because Neon Echo was repeated).
+
+### Sensitivity experiment: genre halved, energy doubled (Project 3 baseline, self-check off)
+
+I halved the genre weight (exact 2.0 to 1.0, backup 1.0 to 0.5) and doubled the energy weight (2.0 to 4.0). The maximum score becomes 8.0. Everything else stayed the same. I ran it on all three profiles. `src/experiments.py` runs this with `self_check_enabled=False`, so the numbers below are still exactly what `python -m src.experiments` prints today.
 
 ```text
 ##### SENSITIVITY EXPERIMENT: genre exact 2.0 -> 1.0 (secondary 1.0 -> 0.5), energy 2.0 -> 4.0 #####
@@ -284,7 +311,9 @@ What changed:
 - Iron Tide still beats Gym Hero, but the gap shrank from 0.652 to 0.052 (6.476 against 6.424). The rock result is thin under these weights.
 - Takeaway: the best matches are stable. The lower places are sensitive to how much weight energy gets.
 
-### Pairwise comparisons (core profiles)
+### Pairwise comparisons (core profiles, Project 3 baseline, self-check off)
+
+These also run with the self-check off, and the output below still matches `python -m src.experiments`.
 
 ```text
 ##### PAIRWISE TOP-5 OVERLAP (core profiles) #####
@@ -298,11 +327,48 @@ intense_rock vs high_energy_pop: 3 shared ['Storm Runner', 'Gym Hero', 'Sunrise 
 - **chill_lofi vs high_energy_pop: 0 shared songs.** Same reason. The lofi list is quiet and acoustic, and the pop list is loud and danceable. It also shows that the lofi list needs its backup genres (ambient, jazz) to fill ranks 4 and 5.
 - **intense_rock vs high_energy_pop: 3 shared songs** (Storm Runner, Gym Hero, Sunrise City). Both profiles want high energy and low acousticness, and energy is the heaviest weight. Gym Hero is 3rd for rock and 2nd for pop. Sunrise City is 5th for rock (3.335, no label points) and 1st for pop (6.719). Labels are what pull these two lists apart at the top.
 
-**Tests in `tests/` (4 tests, all passing):**
+### Current system evaluation (`python -m src.evaluate`, 13/13 passed)
 
-- `test_recommend_returns_songs_sorted_by_score` and `test_explain_recommendation_returns_non_empty_string` come from the starter. They check the starter `Recommender` class only. That class is still a placeholder.
-- `test_tie_break_sorts_equal_scores_by_title` checks that three songs with the same score come back in A to Z order by title.
-- `test_recommend_songs_returns_k_results_sorted_high_to_low` checks that asking for 3 results returns exactly 3, from highest score to lowest.
+`src/evaluate.py` runs 3 baseline, 3 adversarial and 7 bad-input profiles and prints this table (also saved to `evaluation_output.txt`). The pass criteria are defined in code as `PASS_CRITERIA`.
+
+| Profile | Input issue | Guardrail fired | Confidence | Self-check result | Pass/Fail |
+|---|---|---|---|---|---|
+| chill_lofi (baseline) | none | artist cap | 0.74 | fixed: artist_repeated | Pass |
+| intense_rock (baseline) | none | artist cap | 1.00 | fixed: artist_repeated | Pass |
+| high_energy_pop (baseline) | none | none | 1.00 | clean | Pass |
+| conflicting_sad_but_hyper (adversarial) | conflicting targets: calm, sad, acoustic but max energy and fast tempo | none | 1.00 | clean | Pass |
+| unknown_labels (adversarial) | genre and mood not in the catalog | unknown label, widen labels, artist cap | 0.58 | fixed: low_confidence, no_label_match, clustered_scores, artist_repeated | Pass |
+| out_of_range_tempo (adversarial) | tempo 400 BPM, outside 40-200 | clamp, artist cap | 1.00 | fixed: artist_repeated | Pass |
+| missing_keys (bad input) | required keys missing | missing key | 1.00 | clean | Pass |
+| empty_profile (bad input) | empty dict | missing key, widen labels, artist cap | 0.59 | fixed: low_confidence, no_label_match, clustered_scores, artist_repeated | Pass |
+| none_profile (bad input) | profile is None | type fix, missing key, widen labels, artist cap | 0.59 | fixed: low_confidence, no_label_match, clustered_scores, artist_repeated | Pass |
+| non_numeric_targets (bad input) | non-numeric energy and tempo | type fix | 1.00 | clean | Pass |
+| nan_target (bad input) | NaN valence | type fix, artist cap | 1.00 | fixed: artist_repeated | Pass |
+| out_of_range_features (bad input) | energy 5 and valence -2, outside 0-1 | clamp | 1.00 | clean | Pass |
+| wrong_label_types (bad input) | genre is a number, secondary genres is a string | type fix, artist cap | 0.76 | fixed: artist_repeated | Pass |
+
+Pass criteria:
+
+- P1 no exception is raised
+- P2 exactly 5 results are returned
+- P3 every score is finite and within 0-7.0
+- P4 confidence is within 0-1
+- P5 every guardrail the case declares as expected actually fired
+- P6 a clean input (no declared issue) fires no validation guardrail
+- P7 after self-check no flag remains, or confidence is at least 0.5
+
+The expected guardrail for each case is declared by hand, so a pass means the guardrails behave as I expect, not that the recommendations are good.
+
+**Tests in `tests/` (66 tests, all passing).** The 4 tests from the Project 3 baseline are still there (`test_ranking.py` and `test_recommender.py`).
+
+| Test file | Tests | What it covers |
+|---|---|---|
+| `tests/test_confidence.py` | 9 | confidence formula: bounds, weights sum to 1, no-label and secondary-label cases, ties, alias |
+| `tests/test_evaluate.py` | 6 | runs every evaluation profile, no crashes, pass criteria, table columns, saved report |
+| `tests/test_ranking.py` | 2 | tie-break by title and top-k ordering (Project 3 baseline) |
+| `tests/test_recommender.py` | 2 | starter tests for the placeholder `Recommender` class (Project 3 baseline) |
+| `tests/test_self_check.py` | 14 | each self-check flag, the fallbacks, notes on rank 1, self-check off, artist cap |
+| `tests/test_validate_profile.py` | 33 | each validation rule (clamps, 400 BPM, missing key, unknown label, bad types), logging, reasons add up to the score |
 
 The experiments in `src/experiments.py` have no tests of their own.
 
@@ -342,17 +408,27 @@ The experiments in `src/experiments.py` have no tests of their own.
 
 ## 9. Personal Reflection
 
+*The paragraphs below are my Project 3 reflection, kept as written. The "Update for VibeFinder 2.0" notes after each one say how it holds for the current system.*
+
 **My biggest learning moment.** For the rock profile, Iron Tide (metal) lost to Gym Hero (pop) until I listed metal as a backup genre. Then Iron Tide won, 5.136 to 4.484. I had assumed a scoring rule was neutral, but my hand-written backup list flipped the ranking. When I halved the genre weight and doubled the energy weight, the lead shrank to 0.052, so that win is fragile.
+
+*Update for VibeFinder 2.0:* the same lesson applies to the guardrails. The confidence weights and the self-check thresholds (floor 0.5, cluster range 0.25) are hand-picked too, and they decide when a fallback fires. For the k-pop profile the widen fallback moved confidence from 0.12 to 0.58 with no new information about the listener.
 
 **How AI helped, and when I double-checked it.** The AI wrote the song loader, the scoring function, the tests and the first drafts of the docs much faster than I could. It also explained the difference between `sorted()` and `.sort()`. But I had to check its work. The reasons it printed with 2 decimals added up to 5.12 while the score was 5.14, so I asked for 3 decimals. The README still described the old 0.35/0.25/0.25/0.15 weights until the AI flagged it and I had it updated. When we ran a 400 BPM profile, the tempo term went negative and the reasons stopped adding up to the score. For now I documented that instead of fixing it. The AI was confident and mostly right, but its mistakes were quiet ones (rounding, stale docs, untested edge cases), so I needed to check the arithmetic and the changes myself.
 
+*Update for VibeFinder 2.0:* the 400 BPM gap I documented instead of fixing is now fixed. `validate_profile` clamps tempo to 40-200 BPM, and a test checks that the reasons add up to the score for all 18 songs at a 400 BPM target. The guardrails, the self-check, the evaluation harness and the extra tests (66 pass) were built with AI help, and the numbers in this card were taken from real runs of `python -m src.main`, `python -m src.evaluate` and `pytest`. A first draft of one script had a syntax error that only showed up when it was run, so the check-it-yourself lesson still holds.
+
 **What surprised me about simple algorithms.** A handful of weighted rules produced lists that looked sensible. For chill_lofi, the three lofi songs took ranks 1 to 3, and each came with reasons like "energy close to target (+1.860)". Those explanations are what make it feel smart. But it does not understand music. For the k-pop profile, no song earned any label points and the top five were only 0.207 apart, so the order was close to arbitrary. A good-looking recommendation can hide how little is going on.
+
+*Update for VibeFinder 2.0:* the guardrails showed the same thing from the other side. The unknown-label profile ends at confidence 0.58 and no flags, but only because the self-check borrowed labels from the nearest songs. The conflicting profile gets 1.00 even though its energy fit is poor. A high confidence number does not mean the listener is well served.
 
 **What I would try next.**
 
 - Add more songs per genre. Rock listeners drop from 6.854 to 5.136 after rank 1. I would know it worked if that drop shrank.
 - Limit the tempo term so it cannot go below zero, and check the inputs. I would know it worked if the reasons added up to the score for the 400 BPM profile.
 - Add a variety rule. Neon Echo took ranks 4 and 5 for intense_rock. I would check that no artist appears twice in a top five.
+
+*Update for VibeFinder 2.0:* two of these three are done. The tempo term can no longer go negative because tempo is clamped to 40-200 BPM, and the reasons add up to the score for the 400 BPM profile. The variety rule exists as a one-song-per-artist cap, and in the evaluation table the self-check clears the repeated-artist flag in every profile where it fired. Not done: a bigger catalog (rock listeners still drop from 6.854 to 5.136 after rank 1). New items I would try: replace the hard artist cap with a score penalty, calibrate the confidence weights against real listeners, and test with real listeners.
 
 ---
 
@@ -400,8 +476,14 @@ Mitigations in place: every correction is written to the output notes and to the
 
 ### Accepted suggestion
 
-TODO: write in my own words
+The agent refused to write docstrings and a model card for my recommender
+because the functions were still empty stubs, and said it could not call it
+a working "CLI-first" simulation. I accepted that, rebuilt the project in
+stages (loader, scoring, ranking, CLI), and checked each stage with pytest
+and a hand calculation before moving on.
 
 ### Rejected or revised suggestion
 
-TODO: write in my own words
+The agent's reasons printed at 2 decimals and added up to 5.12 while the
+score was 5.14. I asked it to show 3 decimals so the explanation matches the
+total, and I checked by summing the printed reasons for Iron Tide.

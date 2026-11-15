@@ -1,0 +1,26 @@
+| Profile | Input issue | Guardrail fired | Confidence | Self-check result | Pass/Fail |
+|---|---|---|---|---|---|
+| chill_lofi (baseline) | none | artist cap | 0.74 | fixed: artist_repeated | Pass |
+| intense_rock (baseline) | none | artist cap | 1.00 | fixed: artist_repeated | Pass |
+| high_energy_pop (baseline) | none | none | 1.00 | clean | Pass |
+| conflicting_sad_but_hyper (adversarial) | conflicting targets: calm, sad, acoustic but max energy and fast tempo | none | 1.00 | clean | Pass |
+| unknown_labels (adversarial) | genre and mood not in the catalog | unknown label, widen labels, artist cap | 0.58 | fixed: low_confidence, no_label_match, clustered_scores, artist_repeated | Pass |
+| out_of_range_tempo (adversarial) | tempo 400 BPM, outside 40-200 | clamp, artist cap | 1.00 | fixed: artist_repeated | Pass |
+| missing_keys (bad input) | required keys missing | missing key | 1.00 | clean | Pass |
+| empty_profile (bad input) | empty dict | missing key, widen labels, artist cap | 0.59 | fixed: low_confidence, no_label_match, clustered_scores, artist_repeated | Pass |
+| none_profile (bad input) | profile is None | type fix, missing key, widen labels, artist cap | 0.59 | fixed: low_confidence, no_label_match, clustered_scores, artist_repeated | Pass |
+| non_numeric_targets (bad input) | non-numeric energy and tempo | type fix | 1.00 | clean | Pass |
+| nan_target (bad input) | NaN valence | type fix, artist cap | 1.00 | fixed: artist_repeated | Pass |
+| out_of_range_features (bad input) | energy 5 and valence -2, outside 0-1 | clamp | 1.00 | clean | Pass |
+| wrong_label_types (bad input) | genre is a number, secondary genres is a string | type fix, artist cap | 0.76 | fixed: artist_repeated | Pass |
+
+Pass criteria:
+- P1 no exception is raised
+- P2 exactly 5 results are returned
+- P3 every score is finite and within 0-7.0
+- P4 confidence is within 0-1
+- P5 every guardrail the case declares as expected actually fired
+- P6 a clean input (no declared issue) fires no validation guardrail
+- P7 after self-check no flag remains, or confidence is at least 0.5
+
+13/13 profiles passed.

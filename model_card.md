@@ -353,3 +353,55 @@ The experiments in `src/experiments.py` have no tests of their own.
 - Add more songs per genre. Rock listeners drop from 6.854 to 5.136 after rank 1. I would know it worked if that drop shrank.
 - Limit the tempo term so it cannot go below zero, and check the inputs. I would know it worked if the reasons added up to the score for the 400 BPM profile.
 - Add a variety rule. Neon Echo took ranks 4 and 5 for intense_rock. I would check that no artist appears twice in a top five.
+
+---
+
+## 10. Limitations and Biases
+
+Sections 5 and 6 above describe the system as it was before the guardrails were added. This section reflects the current code (VibeFinder 2.0). The numbers come from `python -m src.evaluate` and `python -m src.main`.
+
+**Limits of the data and the scoring (unchanged by the guardrails)**
+
+- **Tiny, invented catalog.** 18 songs, one rock song, most genres and moods with a single song. Any "bias" in the results is mostly the shape of this catalog.
+- **Exact-match labels and hand-written backup lists.** A "pop" fan gets nothing for "indie pop" unless the profile lists it. Whoever writes the lists decides some rankings (Iron Tide over Gym Hero).
+- **Labels can outweigh numbers.** Genre and mood are worth up to 3.0 points, energy at most 2.0.
+- **Taste is reduced to a few attributes.** Lyrics, language, artist, popularity and listening context are not used.
+
+**Limits and biases added by the guardrails**
+
+- **Clamping and defaults put words in the user's mouth.** A 400 BPM target is treated as 200 BPM, and a missing target becomes 0.5 (120 BPM for tempo). Both are logged as warnings, but the recommendations are then based on a value the user did not choose. The empty profile `{}` still returns five songs at confidence 0.59.
+- **The widen fallback borrows labels from the numbers.** When no label matches, it copies the genres and moods of the 3 numerically nearest songs into the secondary labels. For `unknown_labels` (k-pop, cozy) this raised confidence from 0.12 to 0.58 even though the system still knows nothing about the listener's real genre or mood. It also tends to reinforce the filter bubble, because it recommends more of what already matches on numbers.
+- **The confidence score is a heuristic, not a probability.** The weights (0.30 / 0.30 / 0.40) and thresholds (gap 0.5, spread 1.5, floor 0.5, cluster range 0.25) are my own choices and were never calibrated against real listeners. Labels get 40% of the score, so the score rewards having a matching label more than having a good fit.
+- **The self-check can only see what it measures.** A confident, wrong ranking (one song that matches the labels but not what the listener wanted, like Cathedral Dust in the conflicting profile) raises no flag. The conflicting profile ends at confidence 1.00 in the evaluation table.
+- **The one-song-per-artist cap is blunt.** It fires on clean baseline profiles too (chill_lofi, intense_rock) because the catalog repeats artists, and it can drop a better-scoring song (Sunrise City for the rock profile) in favor of a lower-scoring one by a different artist.
+- **The evaluation only checks what I declared.** The expected guardrail for each case is written by hand in `src/evaluate.py`, and all 13 profiles passing says the guardrails do what I expect, not that the recommendations are good. No real listeners were tested.
+
+## 11. Misuse Risks
+
+- **Inferring things about people from taste.** A taste profile can be used to guess age, mood, culture or mental state. The system is not built for that, and nothing in it limits it. It should not be used to label or score people.
+- **False reassurance from the confidence number.** A reader may take 0.58 or 1.00 as "the system is sure". The score only measures how separated and label-backed the top 5 are, and the widen fallback can raise it without any new information about the listener.
+- **Gaming the ranking.** Anyone who controls song metadata can copy the labels and numbers a target profile asks for (matching genre, mood and energy) to push a song up. There is no check on where the metadata comes from.
+- **Artist and genre suppression.** The artist cap and the exact-match labels mean small genres and repeated artists are systematically shown less. In a real product this could quietly hurt specific artists or listeners.
+- **Silent corrections hide bad data.** Because bad input is clamped or defaulted instead of rejected, a broken upstream data source could keep producing plausible-looking recommendations. The only trace is in `logs/app.log`.
+- **The log stores what users type.** Warnings include the genre and mood text from the profile (for example `'k-pop'`). If real user data were used, `logs/app.log` would hold personal preferences, so it should be access-controlled and rotated. `logs/` is git-ignored so it does not get committed.
+- **Not for real products.** The catalog is 18 invented songs and the guardrails have only been tested on the 13 profiles in the evaluation table.
+
+Mitigations in place: every correction is written to the output notes and to the log, the pass criteria are defined in code, and the intended and non-intended uses are in section 7. Not done yet: input source checks, log rotation, calibrating the confidence score, and testing with real listeners.
+
+## 12. What Surprised Me in Testing
+
+- **The widen fallback "fixed" the unknown-label profile in a way that felt too easy.** Confidence went from 0.12 to 0.58 and every flag cleared, but only because the labels were borrowed from the nearest songs. The empty profile `{}` and `None` both ended at 0.59 for the same reason.
+- **Clean baseline profiles tripped a flag.** I expected chill_lofi and intense_rock to be "normal", but both had a repeated artist in the top 5 (LoRoom, Neon Echo), so the self-check changed their output and the sample output in my old docs went stale.
+- **The 400 BPM fix was bigger than it looked.** Before clamping, the tempo term went negative and no reason line was written, so the reasons did not add up to the score. After clamping, the reasons sum to the score for all 18 songs (checked in `test_400_bpm_reasons_sum_to_score_for_every_song`).
+- **A weak ranking and a strong ranking can look alike.** The conflicting profile (classical, melancholy, energy 0.95) gets confidence 1.00 because its labels match, even though its energy fit is poor.
+- **The numeric-only fallback lost in the one case I looked at.** For the unknown-label profile it was tried and reverted because it was not more decisive.
+
+## 13. AI Collaboration
+
+### Accepted suggestion
+
+TODO: write in my own words
+
+### Rejected or revised suggestion
+
+TODO: write in my own words
